@@ -5,6 +5,7 @@ clouds:
       password: {{ os_password }}
       project_name: {{ os_project_name|default(os_tenant_name) }}
       tenant_name: {{ os_tenant_name }}
+      domain_name: {{ os_domain_name }}
       auth_url: {{ os_auth_url }}
     region_name: {{ os_region_name|default('regionOne') }}
 {% if os_identity_api_version is defined %}
