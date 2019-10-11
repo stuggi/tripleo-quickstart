@@ -1,4 +1,5 @@
-git+https://opendev.org/openstack/tripleo-quickstart-extras/#egg=tripleo-quickstart-extras
+#git+https://opendev.org/openstack/tripleo-quickstart-extras/#egg=tripleo-quickstart-extras
+git+https://github.com/stuggi/tripleo-quickstart-extras.git@cellv2_ci#egg=tripleo-quickstart-extras
 git+https://opendev.org/openstack/tripleo-ha-utils/#egg=tripleo-ha-utils
 git+https://opendev.org/x/browbeat/#egg=browbeat
 git+https://opendev.org/openstack/openstack-ansible-os_tempest/#egg=openstack-ansible-os_tempest
