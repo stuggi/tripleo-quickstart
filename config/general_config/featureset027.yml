@@ -15,12 +15,11 @@ containerized_overcloud: false
 containerized_undercloud: true
 undercloud_templates_path: /usr/share/openstack-tripleo-heat-templates
 undercloud_custom_env_files: "{{ working_dir }}/undercloud-parameter-defaults.yaml"
-undercloud_cloud_domain: "localdomain"
-undercloud_undercloud_hostname: "undercloud.{{ undercloud_cloud_domain }}"
+# Prevent regression as described in https://bugs.launchpad.net/tripleo/+bug/1869360
+undercloud_cloud_domain: "localDomain"
+undercloud_undercloud_hostname: "underCloud.{{ undercloud_cloud_domain }}"
 undercloud_undercloud_public_host: "{{ ansible_hostname }}-unique"
 tripleo_set_unique_hostname: true
-undercloud_resource_registry_args:
-  "OS::TripleO::Undercloud::Net::SoftwareConfig": "{{ undercloud_templates_path }}/net-config-undercloud.yaml"
 
 # turn off image prep
 step_overcloud_image: false
@@ -52,7 +51,6 @@ artcl_create_docs_payload:
     - overcloud-prep-images
     - overcloud-prep-network
     - tempest-setup
-    - "{% if run_tempest|bool and tempest_format|default('packages') == 'containers' -%}tempest_container{%- endif -%}"
 
   included_static_docs:
     - env-setup-virt
@@ -65,24 +63,40 @@ artcl_create_docs_payload:
     - overcloud-prep-images
     - overcloud-prep-network
     - tempest-setup
-    - "{% if run_tempest|bool and tempest_format|default('packages') == 'containers' -%}tempest_container{%- endif -%}"
 
 # Tempest configuration, keep always at the end of the file
-# If `run_tempest` is `true`, run tempests tests, otherwise do not
-# run them.
 test_ping: false
-run_tempest: true
-test_regex: ''
-# Enable tempest container
-undercloud_enable_tempest: true
+# os_tempest configuration
 
-# Run tempest in containers when at least undercloud is containerized
-tempest_format: >-
-  {% if containerized_undercloud|bool -%}
-  container
+use_os_tempest: >-
+  {% if release not in ['pike', 'queens', 'stein'] -%}
+  true
   {%- else -%}
-  packages
+  false
   {%- endif -%}
+
+tempest_install_method: distro
+tempest_cloud_name: 'undercloud'
+# There is no external network used for so disabling neutron
+tempest_service_available_neutron: false
+
+tempest_test_whitelist: "{{ tempest_whitelist }}"
+tempest_test_blacklist: "{{ test_black_regex }}"
+test_regex: ''
+
+# Run an undercloud without glance or nova
+undercloud_enable_nova: >-
+  {% if release in ['newton','ocata','pike','queens','stein','train'] -%}
+  true
+  {%- else -%}
+  false
+  {%- endif -%}
+
+# Enable mistral tempest plugin
+tempest_service_available_mistral: >-
+   {% if lookup('env', 'ZUUL_PROJECT') == "openstack/mistral" -%}
+   true
+   {%- endif -%}
 
 tempest_undercloud: true
 tempest_overcloud: false
@@ -96,15 +110,6 @@ tempest_whitelist: >-
 # default tempest tests for UC
 tempest_whitelist_uc:
   - 'tempest.api.identity'
-  - 'tempest.api.image.v2.test_images.BasicOperationsImagesTest'
-  - 'tempest.api.image.v2.test_images_tags_negative.ImagesTagsNegativeTest'
-  - 'tempest.api.image.v2.test_images_member_negative.ImagesMemberNegativeTest'
-  - 'tempest.api.compute.admin.test_flavors'
-  - 'tempest.api.compute.flavors'
-  - 'tempest.api.compute.keypairs'
-  - 'tempest.api.compute.admin.test_quotas'
-  - 'tempest.api.compute.admin.test_aggregates_negative'
-  - 'tempest.api.compute.security_groups'
   - 'tempest.api.network.test_networks'
   - 'tempest.api.network.test_networks_negative'
   - 'tempest.api.network.test_security_groups_negative'
@@ -127,3 +132,5 @@ mistral_test_black_regex:
   - 'mistral_tempest_tests.tests.scenario.engine.actions.v2.test_ssh_actions.SSHActionsTestsV2.test_run_ssh_proxied_action'
   - 'mistral_tempest_tests.tests.scenario.engine.actions.v2.test_openstack_actions.OpenStackActionsTestsV2.test_swift_actions'
   - 'mistral_tempest_tests.tests.scenario.engine.actions.v2.test_multi_vim_authentication.MultiVimActionsTests.test_multi_vim_support_target_headers'
+
+undercloud_enable_paunch: false

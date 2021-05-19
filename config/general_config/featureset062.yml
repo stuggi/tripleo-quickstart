@@ -1,0 +1,93 @@
+####################################################################################################
+# FEATURESET062 - TRIPLEO STANDALONE FOR OCTAVIA - TRACKS SCENARIO 10
+# This is a modified version of featureset 052 (standalone) so changes made
+# to that featureset should be examined to see if they are relevant here.
+####################################################################################################
+
+non_root_user_setup: true
+ovb_setup_connectivity: false
+package_installs: true
+vxlan_networking: false
+toci_vxlan_networking: false
+enable_vbmc: false
+deploy_supplemental_node: false
+undercloud_setup: true
+
+# role / scenario definition
+# deployment role
+standalone_role: Standalone.yaml
+
+# custom env files
+standalone_custom_env_files:
+  - /usr/share/openstack-tripleo-heat-templates/environments/low-memory-usage.yaml
+
+standalone_container_cli: podman
+# We need to selectively re-enable the globally blacklisted octavia tempest
+# plugin.
+tempest_private_net_seg_id: ''
+
+test_ping: false
+
+# os_tempest config
+
+use_os_tempest: true
+
+# Tests for train release
+# octavia-tempest-plugin is pinned to a particular hash, not all
+# tests can be runned there, so we are trimming it
+tempest_test_train:
+  - 'octavia_tempest_plugin.tests.scenario.v2.test_healthmonitor'
+  - 'octavia_tempest_plugin.tests.scenario.v2.test_l7policy'
+  - 'octavia_tempest_plugin.tests.scenario.v2.test_load_balancer'
+  - 'octavia_tempest_plugin.tests.scenario.v2.test_pool'
+  - 'octavia_tempest_plugin.tests.scenario.v2.test_listener'
+  - 'octavia_tempest_plugin.tests.scenario.v2.test_l7rule'
+  - 'octavia_tempest_plugin.tests.scenario.v2.test_member'
+
+# In Integration line, we run only smoke tests
+tempest_test_integration:
+  - 'octavia_tempest_plugin.tests.scenario.v2.test_traffic_ops.TrafficOperationsScenarioTest.test_basic_http_traffic'
+  - 'octavia_tempest_plugin.tests.scenario.v2.test_pool'
+
+tempest_test_periodic: >-
+  {% if 'train' in release -%}
+  {{ tempest_test_train }}
+  {%- else -%}
+  {{ tempest_test_integration }}
+  {%- endif -%}
+
+# As the whole test suite take time, so we are trimming the testlist
+tempest_test_check:
+  - 'octavia_tempest_plugin.tests.scenario.v2.test_healthmonitor'
+  - 'octavia_tempest_plugin.tests.scenario.v2.test_listener'
+  - 'octavia_tempest_plugin.tests.scenario.v2.test_member'
+  - 'octavia_tempest_plugin.tests.scenario.v2.test_load_balancer'
+
+tempest_test_whitelist: >-
+  {% if ('periodic' in zuul.pipeline and not job.force_non_periodic|default(false)|bool) or (job.force_periodic|default(false)|bool) -%}
+  {{ tempest_test_periodic }}
+  {%- elif 'train' not in release -%}
+  {{ tempest_test_check }}
+  {%- else -%}
+  {{ tempest_test_train }}
+  {%- endif -%}
+
+tempest_services:
+  - octavia
+  - neutron
+tempest_run_concurrency: 2
+download_amphora: true
+amphora_url: 'https://images.rdoproject.org/octavia/{{ release }}/amphora-x64-haproxy-centos.qcow2'
+
+tempestconf_override:
+  load_balancer.test_with_ipv6: false
+  network-feature-enabled.port_security: true
+  load_balancer.test_server_path: >-
+    "/usr/lib/python{{ [ansible_python.version.major, ansible_python.version.minor] | join('.') }}/site-packages/octavia_tempest_plugin/contrib/test_server/test_server.bin"
+
+tempestconf_train_override:
+  load_balancer.member_role: '"Member"'
+  load_balancer.test_with_ipv6: false
+
+tempest_tempestconf_profile_overrides: "{{ tempestconf_train_override if release in ['train'] else tempestconf_override }}"
+tempest_os_cloud: standalone

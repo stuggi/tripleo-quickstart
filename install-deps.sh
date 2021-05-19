@@ -35,6 +35,14 @@ python_cmd() {
                 distribution="CentOS"
                 if [ "$distribution_major_version" -ge "8" ]; then
                     PYTHON_CMD=python3
+                elif [ "$distribution_major_version" -eq "7" ]; then
+                    release_val=$(cat /etc/centos-release | awk '{print $4 }' | grep '^7.8\|^7.9')
+                    python_val=$(rpm -q python3)
+                    if [ ! -z $release_val ] && [[ $python_val =~ "python3-" ]]; then
+                        # declare centos7 python3 variable:
+                        centos7py3=true
+                        PYTHON_CMD=python3
+                    fi
                 fi
                 ;;
             fedora)
@@ -88,6 +96,11 @@ check_python_module () {
 
 
 install_deps () {
+    # zuul no longer provides the git hash for checked out repos.
+    # tell me the hash of tripleo-quickstart that is running
+    echo "Print out the commit hash of the git repo"
+    git show --summary 2>/dev/null || true
+
     # If sudo isn't installed assume we already are a super user
     # install it anyways so that the install of the other deps succeeds
 
@@ -102,15 +115,23 @@ install_deps () {
     sudo -n true && passwordless_sudo="1" || passwordless_sudo="0"
     if [[ "$passwordless_sudo" == "1" ]] || [ "$USER_OVERRIDE_SUDO_CHECK" == "1" ]; then
         if [ "$(python_cmd)" == "python3" ]; then
+            echo "setting up for python3"
             # possible bug in ansible, f29 python 3 env fails
             # w/o both python-libselinux packages installed
             # https://bugs.launchpad.net/tripleo/+bug/1812324
             PYTHON_PACKAGES+=("python3-libselinux")
             PYTHON_PACKAGES+=("python3-PyYAML")
             SETUPTOOLS_PACKAGE=python3-setuptools
-            VIRTUALENV_PACKAGE=python3-virtualenv
+            if [ -z $centos7py3 ]; then
+                VIRTUALENV_PACKAGE=python3-virtualenv
+            fi
             PIP_PACKAGE=python3-pip
+            if [ -e "/usr/bin/pip3" ]; then
+                # centos-8 installs pip as pip3
+                sudo alternatives --install /usr/bin/pip pip /usr/bin/pip3 1
+            fi
         else
+            echo "setting up for python2"
             PYTHON_PACKAGES+=("libselinux-python")
             SETUPTOOLS_PACKAGE=python2-setuptools
             VIRTUALENV_PACKAGE=python2-virtualenv
@@ -120,9 +141,14 @@ install_deps () {
         $VIRTUALENV_PACKAGE $PIP_PACKAGE" | tr -s [:space:]
         sudo $(package_manager) install $PYTHON_PACKAGES \
                                             $SETUPTOOLS_PACKAGE \
-                                            $VIRTUALENV_PACKAGE \
                                             $PIP_PACKAGE
-
+        # Install python3 virtualenv via pip on CentOS7
+        if [ -z $centos7py3 ]; then
+            sudo $(package_manager) install $VIRTUALENV_PACKAGE
+        else
+            sudo $(python_cmd) -m pip install virtualenv
+            sudo $(package_manager) install gcc python3-devel
+        fi
         check_python_module virtualenv &> /dev/null || \
             PYTHON_PACKAGES+=($VIRTUALENV_PACKAGE)
 
@@ -140,8 +166,6 @@ install_deps () {
     check_python_module pip &> /dev/null || {
         if yum provides pip 2>&1 | grep 'No matches found' >/dev/null; then
             sudo easy_install pip
-        else
-            sudo $(package_manager) install $PIP_PACKAGE
         fi
     }
 
@@ -182,7 +206,13 @@ install_virtual_env(){
         echo "Warning: VIRTUAL_ENV=$VIRTUAL_ENV was found active and is being reused."
     fi
 
-    $(python_cmd) -m pip install pip --upgrade
+    # Latest pip break Centos7 details in Bug: #1889357, Pin pip to last good version - 20.1.1 for C7
+    if [[ $(python_cmd) == 'python2' ]]; then
+        $(python_cmd) -m pip install pip==20.1.1
+    else
+        $(python_cmd) -m pip install pip --upgrade
+    fi
+
     echo "Installing bindep"
     $(python_cmd) -m pip install bindep --upgrade
 
@@ -243,14 +273,6 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
     # This is not meant be an interactive script
     # however, if users want to install by hand
     # the option is provided.
-
-    # Allow to user to override the python version
-    export USER_PYTHON_OVERRIDE=python2
-
-    # This will allow the user to be prompted for commands
-    # requiring sudo vs. skipping the install assuming the
-    # requirements are already installed.
-    export USER_OVERRIDE_SUDO_CHECK="1"
 
     # install just enough python
     install_deps

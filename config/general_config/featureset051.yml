@@ -28,7 +28,7 @@ upgrade_composable_scenario: scenario000-multinode-containers.yaml
 deployed_server: true
 
 test_ping: false
-run_tempest: false
+use_os_tempest: false
 
 # Tripleo-upgrade role parameters
 # Major Upgrade: containers -> containers (keystone-only)
@@ -44,16 +44,13 @@ create_container_images_download_script: false
 # do not run workload test
 launch_sanity_workload: false
 
-# Need to update once stein is released
-container_registry_file: >-
-  {% if release not in ['ocata','pike','queens','rocky'] -%}
-  containers-prepare-parameter.yaml
-  {%- else -%}
-  containers-default-parameters.yaml
-  {%- endif -%}
+# container_registry_file is used pre-rocky, after rocky
+# is uc_containers_prepare_file the one used to identify
+# the containers file (defaults to: containers-prepare-parameter.yaml)
+container_registry_file: containers-default-parameters.yaml
 tripleo_ci: true
 use_oooq: true
-tripleo_upgrade_debug: true
+tripleo_upgrade_debug: false
 overcloud_ssh_user: >-
   {% if release in ['queens'] -%}
   "tripleo-admin"
@@ -63,12 +60,7 @@ overcloud_ssh_user: >-
 
 # Mandatory for deployed_servers
 tripleo_upgrade_validations_non_fatal: true
-# Reduce CI wall time
-tripleo_upgrade_converge_plan_only: true
 
-run_tripleo_validations: false
-run_tripleo_validations_negative_tests: false
-exit_on_validations_failure: false
 # options below direct automatic doc generation by tripleo-collect-logs
 artcl_gen_docs: true
 artcl_create_docs_payload:
@@ -137,8 +129,6 @@ undercloud_templates_path: /usr/share/openstack-tripleo-heat-templates
 undercloud_custom_env_files: "{{ working_dir }}/undercloud-parameter-defaults.yaml"
 undercloud_cloud_domain: "localdomain"
 undercloud_undercloud_hostname: "undercloud.{{ undercloud_cloud_domain }}"
-undercloud_resource_registry_args:
-  "OS::TripleO::Undercloud::Net::SoftwareConfig": "{{ undercloud_templates_path }}/net-config-undercloud.yaml"
 ctlplane_masquerade: >-
   {% if release not in ['newton','ocata','pike','queens'] -%}
   true

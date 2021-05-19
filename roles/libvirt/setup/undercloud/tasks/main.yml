@@ -183,8 +183,19 @@
 - when:
     - undercloud_vol_check is failed
     - not overcloud_as_undercloud|bool
-    - undercloud_partitions.stdout=='/dev/sda1'
+    - undercloud_partitions.stdout=='/dev/sda1' or '/dev/sda3' in undercloud_partitions.stdout
   block:
+
+    - name: set fact for partition - /dev/sda1
+      set_fact:
+        partition: '/dev/sda1'
+      when: undercloud_partitions.stdout=='/dev/sda1'
+
+    - name: set fact for partition - /dev/sda3
+      set_fact:
+        partition: '/dev/sda3'
+      when: "'/dev/sda3' in undercloud_partitions.stdout"
+
     # Handle the resize for the whole disk image case
     - name: Resize undercloud image (create target image)
       command: >
@@ -194,7 +205,7 @@
 
     - name: Resize undercloud image (call virt-resize)
       command: >
-        virt-resize --expand /dev/sda1
+        virt-resize --expand '{{ partition }}'
         '{{ working_dir }}/undercloud.qcow2'
         '{{ working_dir }}/undercloud-resized.qcow2'
       environment:
@@ -212,7 +223,7 @@
         virt-customize -a '{{ working_dir }}/undercloud.qcow2'
         --run-command 'FS_TYPE=`findmnt -o FSTYPE -fn /`;
         if [ "$FS_TYPE" = "xfs" ]; then xfs_growfs /;
-        elif [ "$FS_TYPE" = "ext4" ]; then resize2fs /dev/sda1;
+        elif [ "$FS_TYPE" = "ext4" ]; then resize2fs {{ partition }};
         else echo "ERROR: Unknown filesystem $FSTYPE, cannot resize.";
         exit 1; fi'
       environment:
@@ -349,27 +360,7 @@
     state: 'directory'
   when: non_root_chown|bool
 
-# This block only run when ansible version < 2.3.
-- block:
-    # Start the undercloud virtual machine.
-    - name: Start undercloud vm
-      virt:
-        name: "{{ undercloud_node.name }}"
-        command: start
-        state: running
-        uri: "{{ libvirt_uri }}"
-
-    # Configure the undercloud virtual machine to be
-    # automatically started at boot.
-    - name: Configure undercloud vm to start at virthost boot
-      virt:
-        name: "{{ undercloud_node.name }}"
-        command: autostart
-        uri: "{{ libvirt_uri }}"
-  when: ansible_version.full|version_compare('2.3','<')
-
 # Start the undercloud virtual machine and make it
-# automatically start for ansible-version >= 2.3
 - name: Start undercloud vm
   virt:
     name: "{{ undercloud_node.name }}"
@@ -377,7 +368,6 @@
     autostart: true
     state: running
     uri: "{{ libvirt_uri }}"
-  when: ansible_version.full|version_compare('2.3','>=')
 
 # Get the ip address of the undercloud.  This will retry several times
 # (`undercloud_ip_retries`) until the undercloud is ready.  The script

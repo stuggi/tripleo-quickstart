@@ -12,8 +12,8 @@ exec &> >(tee -i -a _quickstart.log )
 # or even ansible modules
 LANG=C
 
-DEFAULT_OPT_TAGS="untagged,provision,environment,libvirt,undercloud-scripts,undercloud-inventory,overcloud-scripts,undercloud-setup,undercloud-install,undercloud-post-install,tripleoui-validate"
-DEFAULT_OPT_OVERCLOUD_PREP_TAGS="overcloud-prep-config,overcloud-prep-images,overcloud-prep-flavors,overcloud-prep-containers,overcloud-prep-network,overcloud-scripts,overcloud-ssl"
+DEFAULT_OPT_TAGS="untagged,provision,environment,libvirt,undercloud-scripts,undercloud-inventory,overcloud-scripts,undercloud-setup,undercloud-install,undercloud-post-install,tripleoui-validate,notest,nested_virt"
+DEFAULT_OPT_OVERCLOUD_PREP_TAGS="overcloud-prep-config,overcloud-prep-images,overcloud-prep-flavors,overcloud-prep-containers,overcloud-prep-network,overcloud-scripts,overcloud-ssl,nested_virt"
 ZUUL_CLONER=/usr/zuul-env/bin/zuul-cloner
 
 : ${OPT_BOOTSTRAP:=0}
@@ -129,31 +129,44 @@ bootstrap () {
     fi
 
     pushd $OOOQ_DIR
-        $(python_cmd) setup.py install egg_info --egg-base $OPT_WORKDIR
-        if [ $OPT_CLEAN == 1 ]; then
-            $(python_cmd) -m pip install --no-cache-dir --force-reinstall "${OPT_REQARGS[@]}"
-        else
-            $(python_cmd) -m pip install --force-reinstall "${OPT_REQARGS[@]}"
+        # use stable/train as the latest known good python2 upper constraints
+        # tq can use the last known good for train in virt environments and
+        # execute against any openstack wth --release
+        if [ "$(python_cmd)" == "python2" ]; then
+            export PIP_CONSTRAINT=${PIP_CONSTRAINT:-https://opendev.org/openstack/requirements/raw/branch/stable/train/upper-constraints.txt}
         fi
+        $(python_cmd) setup.py install egg_info --egg-base $OPT_WORKDIR
+
+        if  [ ${QUICKSTART_RELEASE:-$OPT_RELEASE} == "queens" ] || [ ! -z $centos7py3 ]; then
+            # Nb: We set upper constraints to stable/train for Queens and py3
+            echo "Set upper_contratints to stable/train for Queens release and Python3"
+            export UPPER_CONSTRAINTS_FILE="https://opendev.org/openstack/requirements/raw/branch/stable/train/upper-constraints.txt"
+            export PIP_CONSTRAINT="https://opendev.org/openstack/requirements/raw/branch/stable/train/upper-constraints.txt"
+            $(python_cmd) -m pip install --force-reinstall pbr==5.4.3
+            $(python_cmd) -m pip install "${OPT_REQARGS[@]}"
+        else
+            if [ $OPT_CLEAN == 1 ]; then
+                $(python_cmd) -m pip install --no-cache-dir --force-reinstall "${OPT_REQARGS[@]}"
+            else
+                $(python_cmd) -m pip install --force-reinstall "${OPT_REQARGS[@]}"
+            fi
+        fi
+
         if [ -x "$ZUUL_CLONER" ] && [ ! -z "$ZUUL_BRANCH" ]; then
-            mkdir -p .tmp
-            EXTRAS_DIR=$(/bin/mktemp -d -p $(pwd)/.tmp)
-            pushd $EXTRAS_DIR
+                # pull in tripleo-quickstart-extras from source
                 $ZUUL_CLONER --cache-dir \
                     /opt/git \
                     https://opendev.org \
                     openstack/tripleo-quickstart-extras
-                cd openstack/tripleo-quickstart-extras
+                pushd openstack/tripleo-quickstart-extras
                 if [ $OPT_CLEAN == 1 ]; then
                     $(python_cmd) -m pip install --no-cache-dir --force-reinstall .
                 else
                     $(python_cmd) -m pip install --force-reinstall .
                 fi
-        exit
-            popd
+                popd
         fi
     popd
-
 }
 
 activate_venv() {
@@ -516,6 +529,7 @@ activate_venv
 
 export ANSIBLE_CONFIG=$OOOQ_DIR/ansible.cfg
 export ANSIBLE_INVENTORY=$OPT_WORKDIR/hosts
+export ANSIBLE_COLLECTIONS_PATHS="$OPT_WORKDIR/share/ansible/collections:~/.ansible/collections:/usr/share/ansible/collections"
 export ARA_DATABASE="sqlite:///${OPT_WORKDIR}/ara.sqlite"
 
 #set the ansible ssh.config options if not already set.
@@ -572,7 +586,7 @@ Access the undercloud by:
 Follow the documentation in the link below to complete your deployment.
 Note, by default only the undercloud has been installed.
 
-    https://docs.openstack.org/tripleo-docs/latest/install/basic_deployment/basic_deployment_cli.html#upload-images
+    https://docs.openstack.org/project-deploy-guide/tripleo-docs/latest/deployment/install_overcloud.html#upload-images
 
 For fully automated deployments please refer to:
 

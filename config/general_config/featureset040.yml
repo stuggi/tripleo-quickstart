@@ -37,21 +37,16 @@ create_container_images_download_script: false
 # do not run workload test
 launch_sanity_workload: false
 
-# Need to update once stein is released
-container_registry_file: >-
-  {% if release not in ['ocata','pike','queens','rocky'] -%}
-  containers-prepare-parameter.yaml
-  {%- else -%}
-  containers-default-parameters.yaml
-  {%- endif -%}
+# container_registry_file is used pre-rocky, after rocky
+# is uc_containers_prepare_file the one used to identify
+# the containers file (defaults to: containers-prepare-parameter.yaml)
+container_registry_file: containers-default-parameters.yaml
 tripleo_ci: true
 use_oooq: true
-tripleo_upgrade_debug: true
+tripleo_upgrade_debug: false
 overcloud_ssh_user: "zuul"
 # Mandatory for deployed_servers
 tripleo_upgrade_validations_non_fatal: true
-# Reduce CI wall time
-tripleo_upgrade_converge_plan_only: true
 
 # options below direct automatic doc generation by tripleo-collect-logs
 artcl_gen_docs: true
@@ -109,16 +104,7 @@ containerized_undercloud: >-
 undercloud_custom_env_files: "{{ working_dir }}/undercloud-parameter-defaults.yaml"
 undercloud_cloud_domain: "localdomain"
 undercloud_undercloud_hostname: "undercloud.{{ undercloud_cloud_domain }}"
-undercloud_resource_registry_args:
-  "OS::TripleO::Undercloud::Net::SoftwareConfig": "{{ undercloud_templates_path }}/ci/common/net-config-simple-bridge.yaml"
 
 # Tempest configuration, keep always at the end of the file
 test_ping: false
-run_tempest: true
 # Run tempest in containers when at least undercloud is containerized
-tempest_format: >-
-  {% if containerized_undercloud|bool -%}
-  container
-  {%- else -%}
-  packages
-  {%- endif -%}

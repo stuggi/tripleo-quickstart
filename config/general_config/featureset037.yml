@@ -12,17 +12,15 @@ overcloud_update: true
 # updating the container images too. (This might have to be paired
 # with some work on the image building side to get meaningful
 # from-to combination of images.
-# Need to update once stein is released
 container_registry_file: >-
-  {% if release not in ['ocata','pike','queens','rocky'] -%}
-  containers-prepare-parameter.yaml
+  {% if release not in ['queens','stein'] -%}
+  ''
   {%- else -%}
   containers-default-parameters.yaml
   {%- endif -%}
+
 tripleo_upgrade_validations_non_fatal: true
-tripleo_upgrade_debug: true
-# Reduce CI wall time
-tripleo_upgrade_converge_plan_only: true
+tripleo_upgrade_debug: false
 tripleo_ci: true
 use_oooq: true
 overcloud_ssh_user: >-
@@ -40,14 +38,10 @@ containerized_overcloud: true
 undercloud_generate_service_certificate: false
 ssl_overcloud: false
 
-run_tripleo_validations: false
-run_tripleo_validations_negative_tests: false
-exit_on_validations_failure: false
-
 # extra testing disabled for now, may be enabled later depending on
 # job run time
 test_ping: false
-run_tempest: false
+use_os_tempest: false
 # test_white_regex: 'tempest.scenario.test_network_basic_ops.TestNetworkBasicOps.test_network_basic_ops'
 
 composable_roles: true
@@ -88,8 +82,6 @@ undercloud_templates_path: /usr/share/openstack-tripleo-heat-templates
 undercloud_custom_env_files: "{{ working_dir }}/undercloud-parameter-defaults.yaml"
 undercloud_cloud_domain: "localdomain"
 undercloud_undercloud_hostname: "undercloud.{{ undercloud_cloud_domain }}"
-undercloud_resource_registry_args:
-  "OS::TripleO::Undercloud::Net::SoftwareConfig": "{{ undercloud_templates_path }}/net-config-undercloud.yaml"
 ctlplane_masquerade: >-
   {% if release not in ['newton','ocata','pike','queens'] -%}
   true

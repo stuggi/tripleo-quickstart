@@ -25,11 +25,11 @@ add_repos:
   - type: generic
     reponame: quickstart-centos-paas
     filename: quickstart-centos-paas.repo
-    baseurl: https://cbs.centos.org/repos/paas7-openshift-origin311-candidate/x86_64/os/
+    baseurl: https://buildlogs.centos.org/centos/7/paas/x86_64/openshift-origin311/
   - type: generic
     reponame: quickstart-centos-virt-container
     filename: quickstart-centos-virt-container.repo
-    baseurl: https://cbs.centos.org/repos/virt7-container-common-candidate/x86_64/os/
+    baseurl: https://buildlogs.centos.org/centos/7/virt/x86_64/container/
     includepkgs:
       - atomic
     priority: 1
@@ -40,7 +40,7 @@ container_args: >-
   {% if release in ['pike','queens'] -%}
   -e {{ overcloud_templates_path }}/environments/docker.yaml
   {%- endif -%}
-  {% if release in ['ocata', 'pike', 'queens', 'rocky'] %}
+  {% if release in ['ocata', 'pike', 'queens'] %}
   -e {{ working_dir }}/containers-default-parameters.yaml
   {% else %}
   -e {{ working_dir }}/containers-prepare-parameter.yaml
@@ -95,16 +95,7 @@ overcloud_roles:
       - Tenant
 
 # Tempest configuration, keep always at the end of the file
-# Run tempest in containers when at least undercloud is containerized
-tempest_format: >-
-  {% if containerized_undercloud|bool -%}
-  container
-  {%- else -%}
-  packages
-  {%- endif -%}
 
-# If `run_tempest` is `true`, run tempests tests, otherwise do not
-# run them.
 tempest_config: false
 test_ping: false
-run_tempest: false
+use_os_tempest: false

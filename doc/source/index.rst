@@ -6,12 +6,12 @@ Contents:
 .. toctree::
    :maxdepth: 2
 
+   getting-started
    basic-usage
    configuration
    feature-configuration
    node-configuration
    environment-configuration
-   getting-started
    accessing-libvirt
    accessing-undercloud
    accessing-overcloud
@@ -19,7 +19,6 @@ Contents:
    devmode
    devmode-ovb
    design
-   validations
    contributing
    working-with-extras
    rhosp

@@ -12,6 +12,7 @@ set -eux
 ## ::
 
 {{ repo_cmd_before|default('') }}
+{{ dep_repo_cmd_before|default('') }}
 
 # Make temp dir for files
 sudo rm -rf /tmp/repo_role_tmp && mkdir -p /tmp/repo_role_tmp
@@ -19,7 +20,19 @@ sudo rm -rf /tmp/repo_role_tmp && mkdir -p /tmp/repo_role_tmp
 ## * Prepare repositories
 ## ::
 
-{% for repo in repos + add_repos %}
+# Repos can be defined in repos, add_repos (used mostly in
+# featuresets and in the job itself
+
+# creating the following repos
+{% for repo in repos + add_repos + job.add_repos|default([]) %}
+{% if repo.reponame is defined %}
+# repo = {{ repo.reponame }}
+{% else %}
+# repo.reponame is not defined
+{% endif %}
+{% endfor %}
+
+{% for repo in repos + add_repos + job.add_repos|default([]) %}
 {% if repo.releases is not defined or release in repo.releases %}
 
 {% if repo.type == 'file' %}
@@ -67,11 +80,17 @@ gpgcheck={{ repo.gpgcheck|default('0') }}
 enabled={{ repo.enabled|default('1') }}
 {% if repo.priority is defined %}priority={{ repo.priority }}
 {% endif %}
+{% if repo.module_hotfixes is defined %}
+module_hotfixes={{ repo.module_hotfixes|default('0') }}
+{% endif %}
 {% if repo.exclude is defined %}exclude={{ repo.exclude|join(",") }}
 {% endif %}
 {% if repo.includepkgs is defined %}includepkgs={{ repo.includepkgs|join(",") }}
 {% endif %}
 {% if repo.down_url is defined %}# trunk_hash=${HASH:-}
+{% endif %}
+{% if repo.sslverify is defined %}
+sslverify={{ repo.sslverify|default('1') }}
 {% endif %}
 EOF
 sudo cp -f /tmp/repo_role_tmp/{{ repo.filename }} /etc/yum.repos.d/
@@ -114,5 +133,6 @@ subscription-manager repos --enable={{ repo.name }}
 ## ::
 
 {{ repo_cmd_after|default('') }}
+{{ dep_repo_cmd_after|default('') }}
 
 ### --stop_docs

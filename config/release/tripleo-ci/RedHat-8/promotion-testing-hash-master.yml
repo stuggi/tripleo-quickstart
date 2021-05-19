@@ -26,10 +26,10 @@ docker_registry_namespace: tripleomaster
 docker_image_tag: *promotion-testing-tag
 undercloud_docker_insecure_registries: "{{ docker_registry_host }}"
 docker_prep_prefix: rhel-binary
-docker_ceph_namespace: docker.io/ceph
+docker_ceph_namespace: quay.ceph.io/ceph-ci
 docker_openshift_tag: v3.11.0
-overcloud_image_url: "http://38.145.34.141/rcm-guest/images/redhat8/master/rdo_trunk/tripleo-ci-testing/overcloud-full.tar"
-ipa_image_url: "http://38.145.34.141/rcm-guest/images/redhat8/master/rdo_trunk/tripleo-ci-testing/ironic-python-agent.tar"
+overcloud_image_url: "https://images.rdoproject.org:4433/rcm-guest/images/redhat8/master/rdo_trunk/tripleo-ci-testing/overcloud-full.tar"
+ipa_image_url: "https://images.rdoproject.org:4433/rcm-guest/images/redhat8/master/rdo_trunk/tripleo-ci-testing/ironic-python-agent.tar"
 
 repo_cmd_before: |
   sudo rm -rf /etc/yum.repos.d/delorean*;
@@ -84,4 +84,5 @@ repo_cmd_after: |
 undercloud_rpm_dependencies: >-
   python3-tripleoclient
   ceph-ansible
-ansible_python_interpreter: /usr/bin/python3
+overcloud_selinux_enabled: permissive
+undercloud_selinux_enabled: false

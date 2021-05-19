@@ -19,7 +19,8 @@ distro_deps_repo_name: deps
 dlrn_hash_tag: current-tripleo
 dlrn_hash_tag_newest: current
 dlrn_baseurl: "https://trunk.rdoproject.org/{{ distro_ver }}-{{ release }}"
-docker_registry_host: docker.io
+docker_registry_host: >-
+  {{ job.build_container_images|default(false)|bool | ternary('127.0.0.1:5001', job.alt_container_registry|default('trunk.registry.rdoproject.org')) }}
 docker_registry_namespace: "tripleo{{ release }}"
 docker_image_tag: "{{ dlrn_hash|default(dlrn_hash_tag) }}"
 docker_openshift_tag: v3.11.0
@@ -30,6 +31,14 @@ repo_cmd_before: |
   sudo rm -rf /etc/yum.repos.d/*.rpmsave;
   sudo yum clean all;
   sudo yum-config-manager --disable "*"
+  # In https://review.opendev.org/c/765834 a release specific gating-repo is created.
+  # The release specifc gating repo is copied to gating.repo for consistency across ci
+  # The original file is backed up for logging purposes. Upgrade jobs will run with
+  # two releases.
+  sudo cp -f /etc/yum.repos.d/gating-repo-{{ release }}.repo /etc/yum.repos.d/gating.repo || true;
+  sudo sed -i -e "s/gating-repo-{{ release }}/gating-repo/" /etc/yum.repos.d/gating.repo || true;
+  sudo mv /etc/yum.repos.d/gating-repo-{{ release }}.repo /etc/yum.repos.d/gating-repo-{{ release }}.repo_previous || true;
+  sudo yum-config-manager --enable gating-repo || true;
   if [ -e /etc/ci/mirror_info.sh ]; then
     source /etc/ci/mirror_info.sh
   else
@@ -101,6 +110,9 @@ repos:
     reponame: quickstart-centos-extras
     filename: quickstart-centos-extras.repo
     baseurl: ${NODEPOOL_CENTOS_MIRROR}/7/extras/x86_64/
+    exclude:
+      - podman
+      - buildah
 
   - type: generic
     reponame: quickstart-centos-qemu

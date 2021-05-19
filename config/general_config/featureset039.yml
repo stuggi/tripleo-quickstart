@@ -69,6 +69,9 @@ extra_args: >-
    {% if release not in ['newton', 'ocata', 'pike'] %}
    -e {{ overcloud_templates_path }}/ci/environments/ovb-ha.yaml
    {% endif %}
+   {% if release in ['ussuri', 'victoria'] -%}
+   --disable-validations
+   {% endif %}
 
 undercloud_ntp_servers: pool.ntp.org
 # keep the doc gen settings at the bottom of the config file.
@@ -77,8 +80,8 @@ artcl_gen_docs: true
 artcl_create_docs_payload:
   included_deployment_scripts:
     - undercloud-install
-    - novajoin_prep
-    - install_novajoin
+    - "{% if release not in ['queens', 'stein', 'train'] -%}ipa_prep{%- else -%}novajoin_prep{%- endif -%}"
+    - "{% if release not in ['queens', 'stein', 'train'] -%}install_ipa{%- else -%}install_novajoin{%- endif -%}"
     - overcloud-custom-tht-script
     - "{% if release not in ['newton', 'ocata', 'pike'] -%}overcloud-prep-containers{%- endif -%}"
     - overcloud-prep-flavors
@@ -87,14 +90,12 @@ artcl_create_docs_payload:
     - overcloud-deploy
     - overcloud-deploy-post
     - overcloud-validate
-    - "{% if run_tempest|bool -%}tempest-setup{%- endif -%}"
-    - "{% if run_tempest|bool and tempest_format|default('packages') == 'containers' -%}tempest_container{%- endif -%}"
   included_static_docs:
     - env-setup-virt
   table_of_contents:
     - env-setup-virt
-    - novajoin_prep
-    - install_novajoin
+    - "{% if release not in ['queens', 'stein', 'train'] -%}ipa_prep{%- else -%}novajoin_prep{%- endif -%}"
+    - "{% if release not in ['queens', 'stein', 'train'] -%}install_ipa{%- else -%}install_novajoin{%- endif -%}"
     - undercloud-install
     - overcloud-custom-tht-script
     - "{% if release not in ['newton', 'ocata', 'pike'] -%}overcloud-prep-containers{%- endif -%}"
@@ -104,8 +105,6 @@ artcl_create_docs_payload:
     - overcloud-deploy
     - overcloud-deploy-post
     - overcloud-validate
-    - "{% if run_tempest|bool -%}tempest-setup{%- endif -%}"
-    - "{% if run_tempest|bool and tempest_format|default('packages') == 'containers' -%}tempest_container{%- endif -%}"
 
 deploy_steps_ansible_workflow: >-
   {% if release not in ['newton','ocata','pike'] -%}
@@ -130,33 +129,82 @@ test_ping: >-
   false
   {%- endif -%}
 
-run_tempest: >-
-  {% if release in ['newton', 'ocata', 'pike'] -%}
-  false
-  {%- else -%}
+# Settings for os_tempest
+use_os_tempest: >-
+  {% if release not in ['pike', 'queens', 'stein', 'train'] -%}
   true
+  {%- else -%}
+  false
   {%- endif -%}
+# It will create a public network name 'public' using os_tempest
+tempest_interface_name: public
+
+tempest_run_concurrency: 4
+
+# In order to have a public network with external connectivity, we need to use
+# flat network type
+tempest_public_net_provider_type: flat
+
+# It is the physical network name through which public network will be created
+# having connectivity with external world.
+tempest_public_net_physical_name: datacentre
+
+# Setting the tempest_cidr as it is required while creating public subnet from which
+# floating IPs gets assigned
+tempest_cidr: '10.0.0.0/24'
+
+tempest_private_net_seg_id: ''
+
+tempest_install_method: distro
+
+# Having tempest_network_ping_gateway set to true allows to ping any of the IP from
+# router to find out network related issue in the deployment early
+tempest_network_ping_gateway: true
+
+# It is the python-tempestconf profile which also consumes tempest-deployer-input file
+tempest_tempestconf_profile:
+  debug: true
+  create: true
+  deployer-input: "{{ ansible_user_dir }}/tempest-deployer-input.conf"
+  os-cloud: "{{ tempest_cloud_name }}"
+  out: "{{ tempest_workspace }}/etc/tempest.conf"
+  network-id: "{{ tempest_neutron_public_network_id }}"
+  overrides: "{{ tempest_tempest_conf_overrides | default({}) }}"
 
 test_white_regex: ''
 tempest_whitelist:
   - 'tempest.scenario.test_network_basic_ops.TestNetworkBasicOps.test_network_basic_ops'
-tempest_format: >-
-  {% if containerized_undercloud|bool -%}
-  container
-  {%- else -%}
-  packages
-  {%- endif -%}
-undercloud_enable_tempest: >-
-  {% if release not in ['newton', 'ocata', 'pike', 'queens'] -%}
+
+tempest_test_whitelist: "{{ tempest_whitelist }}"
+
+# Run an undercloud without glance or nova
+undercloud_enable_nova: >-
+  {% if release in ['queens', 'stein', 'train'] -%}
   true
   {%- else -%}
   false
+  {%- endif -%}
+
+baremetal_provision: >-
+  {% if release in ['queens', 'stein', 'train'] -%}
+  false
+  {%- else -%}
+  true
   {%- endif -%}
 
 # TLS everywhere related vars. #
 enable_tls_everywhere: true
 novajoin_connect_timeout: 60
 novajoin_read_timeout: 60
+
+# This switches between a deployment with novajoin or using ansible-tripleo-ipa
+undercloud_enable_novajoin: >-
+  {% if release in ['queens', 'stein', 'train'] -%}
+  True
+  {%- else -%}
+  False
+  {%- endif -%}
+
 external_network_cidr: 10.0.0.0/24
 
 freeipa_admin_password: fce95318204114530f31f885c9df588f
@@ -183,5 +231,46 @@ supplemental_user: centos
 supplemental_image_url: https://cloud.centos.org/centos/7/images/CentOS-7-x86_64-GenericCloud.qcow2
 
 undercloud_custom_env_files: "{{ working_dir }}/undercloud-parameter-defaults.yaml"
-undercloud_resource_registry_args:
-  "OS::TripleO::Undercloud::Net::SoftwareConfig": "{{ undercloud_templates_path }}/net-config-undercloud.yaml"
+
+### Keycloak IdP ###
+
+# Turn on federation support
+enable_federation: true
+
+# For simplicity in development and testing scenarios share the admin
+# password with IPA. Do not do this in a production environment!
+keycloak_admin_password: "{{ freeipa_admin_password }}"
+
+# Locate the Keycloak cert/key on the supplemental node, this offers
+# the potential for certmonger to manage cert renewal and simplifies
+# obtaining the cert from IPA.
+keycloak_tls_files_on_target: true
+
+# Download the keycloak archive directly to the supplemental node as
+# opposed to caching it on the host running oooq which then incurs the
+# penalty of Ansible unpacking it over a (typically) slow SSH connection.
+keycloak_archive_on_target: true
+
+# Both the PKI certificate server in IPA and Keycloak default their
+# http and https port to 8080 and 8443 respectively. Because IPA is
+# installed first ports 8080 and 8443 are already in use, bump the
+# Keycloak ports by 1 to avoid port conflicts.
+keycloak_http_port: 8081
+keycloak_https_port: 8444
+
+# IPA installs first on the supplemental and does not enable the
+# firewall. If keycloak were to install later and enabled the
+# firewall opening only the Keycloak ports then the IPA ports would
+# be blocked. Therefore turn off Keycloak's configuration of the
+# firewall. The IPA install should enable the firewall but when this
+# was attempted a bug in Ansible prevented it from working. If the IPA
+# install gains the ability to enable the firewall then
+# keycloak_configure_firewall should be turned on.
+keycloak_configure_firewall: false
+
+# Limit the JVM max heap size to 512 MB
+keycloak_java_opts: "-Xms64m -Xmx512m"
+
+# Extend the CLI connect timeout to account for slow startup of Keycloak
+# with our small heap size.
+keycloak_jboss_config_connect_timeout: 90000

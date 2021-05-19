@@ -14,7 +14,7 @@ convert_image_remove_pkgs:
 
 # List of packages that should be installed to convert overcloud to undercloud
 convert_image_install_pkgs:
-  - python-tripleoclient
+  - "{{ 'python3-tripleoclient' if ansible_distribution_major_version is version(8, '>=') else 'python-tripleoclient' }}"
 
 convert_image_tempest_plugins: []
 convert_image_host_memory: 2048

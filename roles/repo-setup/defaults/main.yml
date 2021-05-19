@@ -9,8 +9,8 @@ stable:
   - pike
   - ocata
   - queens
-  - rocky
   - stein
+  - train
 repo_cmd_before: |
   {% if ansible_pkg_mgr == "yum" %}
   sudo {{ ansible_pkg_mgr }} install -y yum-plugin-priorities;
@@ -23,7 +23,7 @@ repo_cmd_after: |
   sudo {{ ansible_pkg_mgr }} update -y
 
 # Repositories definitions
-dlrn_baseurl: https://trunk.rdoproject.org/centos7-{{ release }}
+dlrn_baseurl: "https://trunk.rdoproject.org/centos{{ ansible_distribution_major_version | default('7') }}-{{ release }}"
 repos:
   - type: file
     filename: delorean.repo
@@ -59,3 +59,7 @@ known_hash_tags:
   - current-tripleo-rdo
   - current-tripleo-rdo-internal
   - current-passed-ci
+  - promoted-components
+  - component-ci-testing
+expected_commit_distro_hash_regex: "[a-zA-Z0-9]{40}_[a-zA-Z0-9]{8}$"
+expected_aggregate_hash_regex: "^[a-zA-Z0-9]{32}$"

@@ -19,14 +19,6 @@ undercloud_templates_path: /usr/share/openstack-tripleo-heat-templates
 undercloud_custom_env_files: "{{ working_dir }}/undercloud-parameter-defaults.yaml"
 undercloud_cloud_domain: "localdomain"
 undercloud_undercloud_hostname: "undercloud.{{ undercloud_cloud_domain }}"
-undercloud_resource_registry_args:
-  "OS::TripleO::Undercloud::Net::SoftwareConfig": "{{ undercloud_templates_path }}/net-config-undercloud.yaml"
-undercloud_enable_tempest: >-
-  {% if release not in ['newton', 'ocata', 'pike', 'queens'] -%}
-  true
-  {%- else -%}
-  false
-  {%- endif -%}
 ctlplane_masquerade: >-
   {% if release not in ['newton','ocata','pike','queens'] -%}
   true
@@ -40,6 +32,19 @@ undercloud_generate_service_certificate: false
 
 # This enables the deployment of the overcloud with SSL.
 ssl_overcloud: false
+composable_roles: true
+overcloud_roles:
+  - name: Controller
+    CountDefault: 1
+    tags:
+      - primary
+      - controller
+    networks:
+      - External
+      - InternalApi
+      - Storage
+      - StorageMgmt
+      - Tenant
 
 # This featureset is extremely resource intensive, so we disable telemetry
 # in order to reduce the overall memory footprint
@@ -62,8 +67,6 @@ artcl_create_docs_payload:
     - overcloud-deploy
     - overcloud-deploy-post
     - overcloud-upgrade
-    - "{% if run_tempest|bool -%}tempest-setup{%- endif -%}"
-    - "{% if run_tempest|bool and tempest_format|default('packages') == 'containers' -%}tempest_container{%- endif -%}"
     - overcloud-validate
   included_static_docs:
     - env-setup-virt
@@ -79,65 +82,51 @@ artcl_create_docs_payload:
     - overcloud-deploy-post
     - overcloud-upgrade
     - overcloud-validate
-    - "{% if run_tempest|bool -%}tempest-setup{%- endif -%}"
-    - "{% if run_tempest|bool and tempest_format|default('packages') == 'containers' -%}tempest_container{%- endif -%}"
-composable_roles: true
-overcloud_roles:
-  - name: Controller
-    CountDefault: 1
-    tags:
-      - primary
-      - controller
-    networks:
-      - External
-      - InternalApi
-      - Storage
-      - StorageMgmt
-      - Tenant
 
 deployed_server: >-
-  {% if release in ['newton','ocata','pike'] -%}
+  {% if release in ['newton','ocata','pike','queens'] -%}
   true
   {%- else -%}
   false
   {%- endif -%}
 deploy_steps_ansible_workflow: >-
-  {% if release not in ['newton','ocata','pike'] -%}
+  {% if release not in ['newton','ocata','pike','queens'] -%}
   true
   {%- else -%}
   false
   {%- endif -%}
 config_download_args: >-
-  {% if release in ['queens'] -%}
-  -e /usr/share/openstack-tripleo-heat-templates/environments/config-download-environment.yaml
-  --config-download
-  --deployed-server
-  {%- endif %}
-  {% if release not in ['newton','ocata','pike'] -%}
+  {% if release not in ['newton','ocata','pike','queens'] -%}
   -e {{ working_dir }}/config-download.yaml
   --disable-validations
   --verbose
   {%- endif -%}
 
-# Tempest configuration, keep always at the end of the file
-# If `run_tempest` is `true`, run tempests tests, otherwise do not
-# run them.
+# selectively re-enable the globally blacklist octavia tempest plugin.
+skip_test_file: "{{ playbook_dir | dirname }}/vars/tempest_skip_{{ release | default('master') }}.yml"
+skip_list_tests: "{{ lookup('file', skip_test_file) | from_yaml }}"
+skip_file_src: ''
+tempest_black: "{{ skip_list_tests.known_failures | json_query('[?test != `octavia_tempest_plugin`].test') }}"
+test_black_regex: "{{ tempest_black }}"
+
 test_ping: false
-# TODO(cgoncalves): enable tempest run once https://review.opendev.org/#/c/591997/ is merged
-run_tempest: false
 test_white_regex: ''
 
-# Run tempest in containers when at least undercloud is containerized
-tempest_format: >-
-  {% if containerized_undercloud|bool -%}
-  container
-  {%- else -%}
-  packages
-  {%- endif -%}
-
 tempest_whitelist:
-  - 'tempest.scenario.test_network_basic_ops.TestNetworkBasicOps.test_network_basic_ops'
-  - 'octavia_tempest_plugin.tests.api'
   - 'octavia_tempest_plugin.tests.scenario.v2.test_load_balancer.LoadBalancerScenarioTest'
 tempest_plugins:
   - python-octavia-tests-tempest
+tempest_extra_config:
+  load_balancer.member_role: '"Member"'
+  load_balancer.test_with_ipv6: false
+  load_balancer.region: 'regionOne'
+  load_balancer.enabled_provider_drivers: '"amphora:The Octavia Amphora driver.,octavia:Deprecated alias of the Octavia Amphora driver.,ovn:Octavia OVN driver."'
+
+undercloud_container_cli: podman
+
+# the variable is only used in overcloud-deploy role
+# for stein and beyond, so it's safe to set it to podman,
+# as for stable branches the variable won't be used.
+overcloud_container_cli: podman
+download_amphora: true
+amphora_url: 'https://images.rdoproject.org/octavia/{{ release }}/amphora-x64-haproxy-centos.qcow2'

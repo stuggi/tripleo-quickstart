@@ -73,6 +73,11 @@ flavors:
     disk: '{{ control_disk|default(default_disk) }}'
     vcpu: '{{ control_vcpu|default(default_vcpu) }}'
 
+  cellcontrol:
+    memory: '{{ cellcontrol_memory|default(default_memory) }}'
+    disk: '{{ cellcontrol_disk|default(default_disk) }}'
+    vcpu: '{{ cellcontrol_vcpu|default(default_vcpu) }}'
+
   ceph:
     memory: '{{ ceph_memory|default(default_memory) }}'
     disk: '{{ ceph_disk|default(default_disk) }}'
@@ -132,6 +137,8 @@ overcloud_nodes:
 #   network will be attached to the undercloud. This is required to ssh from the
 #   virt host to the undercloud
 #   *  The first bridge network defined will be used for pxe booting
+#   *  Networks with forward_mode: 'nat' will not be attached to overcloud
+#   nodes unless force_ovc: true is used in network's definition.
 #
 external_network_cidr: 192.168.23.0/24
 networks:
@@ -141,6 +148,7 @@ networks:
   - name: external
     bridge: brext
     forward_mode: nat
+    force_ovc: false
     address: "{{ external_network_cidr|nthhost(1) }}"
     netmask: "{{ external_network_cidr|ipaddr('netmask') }}"
     dhcp_range:
@@ -180,6 +188,16 @@ ssl_overcloud: false
 # to be set accordingly with the `undercloud_external_network_cidr`.
 overcloud_public_vip: 10.0.0.5
 overcloud_public_vip6: 2001:db8:fd00:1000::14
+
+# This enables the deployment of an additonal nova cellv2
+additional_cell: false
+# name of the cell
+cell_name: cell1
+# If ssl_overcloud and additional_cell is True, then the cell public vip must be
+# explicitly specified as part of the deployment configuration. Note that the
+# VIP used has to be set accordingly with the `undercloud_external_network_cidr`.
+cell_public_vip: 10.0.0.6
+cell_public_vip6: 2001:db8:fd00:1000::15
 
 # Enable the virt_bmc ( virtual baremetal controllers )
 enable_vbmc: true
@@ -224,14 +242,6 @@ non_root_chown: false
 # It is safe to mark this as default true as it only runs on a virthost
 # This variable is set to true in config/environments/default_libvirt.yml
 enable_port_forward_for_tripleo_ui: false
-
-# This enables the run of several tripleo-validations tests through Mistral
-run_tripleo_validations: false
-# This enables the run of tripleo-validations negative tests through shell
-# scripts
-run_tripleo_validations_negative_tests: false
-# Exit tripleo-quickstart on validations failures
-exit_on_validations_failure: false
 
 # Update undercloud and overcloud images with the repos provided via the
 # release config.

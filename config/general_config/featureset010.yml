@@ -17,8 +17,6 @@ undercloud_templates_path: /usr/share/openstack-tripleo-heat-templates
 undercloud_custom_env_files: "{{ working_dir }}/undercloud-parameter-defaults.yaml"
 undercloud_cloud_domain: "localdomain"
 undercloud_undercloud_hostname: "undercloud.{{ undercloud_cloud_domain }}"
-undercloud_resource_registry_args:
-  "OS::TripleO::Undercloud::Net::SoftwareConfig": "{{ undercloud_templates_path }}/ci/common/net-config-simple-bridge.yaml"
 
 # This enables TLS for the undercloud which will also make haproxy bind to the
 # configured public-vip and admin-vip.
@@ -26,14 +24,6 @@ undercloud_generate_service_certificate: false
 
 # This enables the deployment of the overcloud with SSL.
 ssl_overcloud: false
-
-# This enables the run of several tripleo-validations tests through Mistral
-run_tripleo_validations: true
-# This enables the run of tripleo-validations negative tests through shell
-# scripts
-run_tripleo_validations_negative_tests: true
-# Exit tripleo-quickstart on validations failure
-exit_on_validations_failure: false
 
 composable_roles: true
 overcloud_roles:
@@ -70,24 +60,15 @@ config_download_args: >-
   {% if release not in ['newton','ocata','pike'] -%}
   -e {{ working_dir }}/config-download.yaml
   --disable-validations
-  --verbose
   {%- endif -%}
 
 # Tempest configuration, keep always at the end of the file
-# If `run_tempest` is `true`, run tempests tests, otherwise do not
-# run them.
 test_ping: false
 
 # Settings for os_tempest
-run_tempest: >-
-  {% if release not in ['pike', 'queens', 'rocky', 'stein'] -%}
-  false
-  {%- else -%}
-  true
-  {%- endif -%}
 
 use_os_tempest: >-
-  {% if release not in ['pike', 'queens', 'rocky', 'stein'] -%}
+  {% if release not in ['pike', 'queens', 'stein'] -%}
   true
   {%- else -%}
   false
@@ -98,19 +79,7 @@ tempest_test_whitelist:
 
 test_white_regex: 'tempest.scenario.test_network_basic_ops.TestNetworkBasicOps.test_network_basic_ops'
 
-# Run tempest in containers when at least undercloud is containerized
-tempest_format: >-
-  {% if containerized_undercloud|bool -%}
-  container
-  {%- else -%}
-  packages
-  {%- endif -%}
-undercloud_enable_tempest: >-
-  {% if release not in ['newton', 'ocata', 'pike', 'queens'] -%}
-  true
-  {%- else -%}
-  false
-  {%- endif -%}
-
 # https://launchpad.net/bugs/1844446
 undercloud_enable_validations: false
+
+undercloud_enable_paunch: false

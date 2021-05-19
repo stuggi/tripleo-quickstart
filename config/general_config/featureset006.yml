@@ -1,13 +1,5 @@
 undercloud_generate_service_certificate: false
 
-# This enables the run of several tripleo-validations tests through Mistral
-run_tripleo_validations: true
-# This enables the run of tripleo-validations negative tests through shell
-# scripts
-run_tripleo_validations_negative_tests: true
-# Exit tripleo-quickstart on validations failure
-exit_on_validations_failure: false
-
 # pacemaker settings are configured in the scenario template
 # do not set `enable_pacemaker` in the featureset
 
@@ -39,20 +31,6 @@ test_ping: >-
   false
   {%- endif -%}
 
-run_tempest: >-
-  {% if release in ['newton', 'ocata'] -%}
-  false
-  {%- else -%}
-  true
-  {%- endif -%}
-
-# Run tempest in containers when at least undercloud is containerized
-tempest_format: >-
-  {% if containerized_undercloud|bool -%}
-  container
-  {%- else -%}
-  packages
-  {%- endif -%}
 
 test_white_regex: ''
 tempest_whitelist_old:
