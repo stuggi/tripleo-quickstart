@@ -62,7 +62,7 @@ repos:
   - type: generic
     reponame: quickstart-centos-ceph-pacific
     filename: quickstart-centos-ceph-pacific.repo
-    baseurl: http://mirror.centos.org/centos/8/storage/x86_64/ceph-pacific
+    baseurl: http://mirror.centos.org/centos/8-stream/storage/x86_64/ceph-pacific
 
   - type: generic
     reponame: quickstart-centos-opstools
@@ -80,7 +80,6 @@ repo_cmd_after: |
 
 undercloud_rpm_dependencies: >-
   python3-tripleoclient
-  ceph-ansible
 # baseos settings
 baseos_undercloud_image_url: https://cloud.centos.org/centos/8-stream/x86_64/images/CentOS-Stream-GenericCloud-8-20201217.0.x86_64.qcow2
 baseos_image: centos

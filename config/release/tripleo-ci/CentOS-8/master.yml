@@ -166,7 +166,9 @@ repos:
   - type: generic
     reponame: quickstart-centos-ceph-pacific
     filename: quickstart-centos-ceph-pacific.repo
-    baseurl: ${NODEPOOL_CENTOS_MIRROR}/8/storage/x86_64/ceph-pacific/
+    baseurl: ${NODEPOOL_CENTOS_MIRROR}/8-stream/storage/x86_64/ceph-pacific/
+    exclude:
+      - ansible*
 
   - type: generic
     reponame: quickstart-centos-opstools
@@ -187,6 +189,12 @@ repo_cmd_after: |
   sudo rpm -e epel-release || true;
   sudo dnf remove -y rdo-release centos-release-ceph-* centos-release-openstack-* || true;
   sudo rm -rf /etc/yum.repos.d/CentOS-OpenStack-*.repo /etc/yum.repos.d/CentOS-Ceph-*.repo;
+  # Disable delorean repo if a similar component repo exists
+  {% if job is defined and job.component is defined %}
+  if [ -f "/etc/yum.repos.d/{{ job.component }}-component.repo" ] && sudo cat /etc/yum.repos.d/{{ job.component }}-component.repo | grep 'enabled=1'; then
+      dnf config-manager --disable delorean-component-{{ job.component }};
+  fi
+  {% endif %}
   sudo rm -rf /etc/yum.repos.d/*.rpmsave;
   sudo dnf repolist;
   sudo dnf module list;
@@ -198,7 +206,6 @@ repo_cmd_after: |
   {% endif %}
 undercloud_rpm_dependencies: >-
   python3-tripleoclient
-  ceph-ansible
 # baseos settings
 baseos_undercloud_image_url: https://cloud.centos.org/centos/8-stream/x86_64/images/CentOS-Stream-GenericCloud-8-20201217.0.x86_64.qcow2
 baseos_image: centos
